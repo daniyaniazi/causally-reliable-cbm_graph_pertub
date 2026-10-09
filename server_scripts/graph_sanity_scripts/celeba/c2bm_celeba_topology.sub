@@ -2,6 +2,7 @@ universe                = docker
 docker_image            = pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
 initialdir              = /home/dani00003/causally-reliable-cbm_graph_pertub
 executable              = /home/dani00003/causally-reliable-cbm_graph_pertub/server_scripts/graph_sanity_scripts/celeba/run_c2bm_celeba_topology.sh
+arguments               = $(GRAPH_SEED)
 
 output                  = /home/dani00003/causally-reliable-cbm_graph_pertub/server_scripts/graph_sanity_scripts/celeba/topology.$(ClusterId).$(ProcId).out
 error                   = /home/dani00003/causally-reliable-cbm_graph_pertub/server_scripts/graph_sanity_scripts/celeba/topology.$(ClusterId).$(ProcId).err
@@ -13,4 +14,10 @@ request_memory           = 32G
 requirements             = UidDomain == "cs.uni-saarland.de"
 +WantGPUHomeMounted      = true
 
-queue 1
+queue GRAPH_SEED from (
+    1
+    2
+    3
+    4
+    5
+)
