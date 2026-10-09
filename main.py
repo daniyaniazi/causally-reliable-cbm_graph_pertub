@@ -16,12 +16,6 @@ from pytorch_lightning.loggers import WandbLogger
 # data loading
 from src.data.dataset_block import get_dataset
 
-# causal discovery
-from src.causal_discovery.causal_discovery_block import causal_discovery
-
-# graph completion block
-from src.completion.completion_block import complete_graph_with_llm
-
 # training and utils
 from src.trainer import Trainer
 from src.hydra_parsing import parse_hyperparams
@@ -71,6 +65,10 @@ def main(cfg: DictConfig) -> None:
             with open(graph_path, 'rb') as f:
                 graph = pickle.load(f)
         else:
+            # These pipelines are optional when a graph is supplied from cache.
+            from src.causal_discovery.causal_discovery_block import causal_discovery
+            from src.completion.completion_block import complete_graph_with_llm
+
             # estimate causal graph with causal structural learning algorithms
             predicted_graph = causal_discovery(cfg, dataset, true_graph)
             if true_graph is not None:

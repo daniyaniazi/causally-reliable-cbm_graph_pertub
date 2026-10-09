@@ -22,6 +22,8 @@ dependencies:
   - scipy
   - scikit-learn
   - seaborn
+  - matplotlib
+  - torchmetrics
   - tqdm
   - openpyxl
   - huggingface_hub
@@ -41,6 +43,8 @@ dependencies:
     - langchain
     - langchain_core
     - langchain_huggingface
+    - sentence-transformers
+    - pgmpy
     - accelerate>=0.26.0
     - bnlearn
     - nltk

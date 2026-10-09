@@ -4,7 +4,7 @@ import pandas as pd
 import re
 from collections import Counter
 from langchain_huggingface import HuggingFacePipeline
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from transformers import pipeline
 from langchain_core.output_parsers import StrOutputParser
 

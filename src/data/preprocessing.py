@@ -15,7 +15,6 @@ from src.data.utils import reduce_dataset
 from src.data.datasets.colormnist import update_concept_names_ColorMNIST, onehot_to_concepts_ColorMNIST
 from src.data.autoencoder import AutoencoderTrainer, scale_embeddings
 from src.data.labelfree_preprocessing import load_pretrained_clip_model, generate_img_embeddings_and_assign_concepts
-from src.completion.concepts_retrieval import concepts_generation, filtering_concepts_from_llm
 from src.data.datasets.synthetic import get_synthetic_datasets, SyntheticDatasetContainer
 
 def generate_img_embeddings(dataset: torch.utils.data.Dataset,
@@ -146,6 +145,10 @@ def preprocess_dataset(cfg, _dataset, device, backbone) -> dict:
                                             selected_var_index=selected_var_index)
         dataset = scale_embeddings(dataset)
     elif cfg.dataset.get('name') == 'siim_pneumothorax':
+        # Concept generation uses optional sentence-transformer/LLM dependencies;
+        # import it only for the SIIM dataset that needs it.
+        from src.completion.concepts_retrieval import concepts_generation, filtering_concepts_from_llm
+
         clip_model, clip_tokenizer, ckpt_config = load_pretrained_clip_model("r50_mcc")
         dataset.split(ckpt_config)
         	   
