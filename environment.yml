@@ -13,6 +13,7 @@ dependencies:
   - lightning
   - cdt
   - fpdf2
+  - graphviz
   - requests
   - python-dotenv 
   - hydra-core=1.3.*

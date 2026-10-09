@@ -3,6 +3,7 @@ set -euo pipefail
 
 PROJECT_ROOT="/home/dani00003/causally-reliable-cbm_graph_pertub"
 PYTHON_BIN="/home/dani00003/miniconda3/envs/c2bm/bin/python"
+CONDA_ENV_BIN="/home/dani00003/miniconda3/envs/c2bm/bin"
 DATA_DIR="/home/dani00003/.cache/c2bm/CelebA/celeba"
 GRAPH_CACHE="/home/dani00003/.cache/c2bm/celeba"
 GRAPH_SOURCE="$PROJECT_ROOT/learned_graphs/celeba/graph.pkl"
@@ -26,6 +27,7 @@ if [[ ! -f "$GRAPH_CACHE/graph.pkl" ]]; then
 fi
 
 cd "$PROJECT_ROOT"
+export PATH="$CONDA_ENV_BIN:$PATH"
 echo "HOST=$(hostname)"
 echo "PROJECT_ROOT=$PROJECT_ROOT"
 echo "DATA_DIR=$DATA_DIR"

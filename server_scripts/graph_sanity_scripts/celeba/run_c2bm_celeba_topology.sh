@@ -3,6 +3,7 @@ set -euo pipefail
 
 PROJECT_ROOT="/home/dani00003/causally-reliable-cbm_graph_pertub"
 PYTHON_BIN="/home/dani00003/miniconda3/envs/c2bm/bin/python"
+CONDA_ENV_BIN="/home/dani00003/miniconda3/envs/c2bm/bin"
 DATA_DIR="/home/dani00003/.cache/c2bm/CelebA/celeba"
 BASE_GRAPH="$PROJECT_ROOT/learned_graphs/celeba/graph.pkl"
 
@@ -20,6 +21,7 @@ if [[ ! -f "$BASE_GRAPH" ]]; then
 fi
 
 cd "$PROJECT_ROOT"
+export PATH="$CONDA_ENV_BIN:$PATH"
 echo "HOST=$(hostname)"
 echo "Model seed=1; topology seeds=1,2,3,4,5"
 "$PYTHON_BIN" -V
