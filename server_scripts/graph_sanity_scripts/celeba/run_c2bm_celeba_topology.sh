@@ -23,7 +23,7 @@ fi
 cd "$PROJECT_ROOT"
 export PATH="$CONDA_ENV_BIN:$PATH"
 GRAPH_SEED="${1:?Usage: run_c2bm_celeba_topology.sh GRAPH_SEED}"
-if ! [[ "$GRAPH_SEED" =~ ^[1-5]$ ]]; then
+if ! [[ "$GRAPH_SEED" =~ ^[1-3]$ ]]; then
     echo "ERROR: GRAPH_SEED must be an integer from 1 to 5; got '$GRAPH_SEED'" >&2
     exit 2
 fi
