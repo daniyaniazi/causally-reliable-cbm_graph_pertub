@@ -41,8 +41,8 @@ for GRAPH_SEED in 1 2 3 4 5; do
     "$PYTHON_BIN" main.py --config-name default \
         dataset=celeba model=c2bm seed=1 \
         dataset.batch_size=512 dataset.load_embeddings="$LOAD_DATASET" \
-        dataset.load_graph=true dataset.load_true_graph=false \
-        dataset.graph_path="$PERTURBED_GRAPH" \
+        +dataset.load_graph=true +dataset.load_true_graph=false \
+        ++dataset.graph_path="$PERTURBED_GRAPH" \
         policy=nodes_pred \
         model.hidden_size=64 model.concept_hidden_size=8 \
         model.concept_loss_weight=0.8 model.prop_type=equations \
