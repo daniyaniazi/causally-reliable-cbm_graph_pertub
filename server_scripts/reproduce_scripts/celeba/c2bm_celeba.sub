@@ -1,0 +1,16 @@
+universe                = docker
+docker_image            = pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
+initialdir              = /home/dani00003/causally-reliable-cbm_graph_pertub
+executable              = /home/dani00003/causally-reliable-cbm_graph_pertub/server_scripts/reproduce_scripts/celeba/run_c2bm_celeba.sh
+
+output                  = /home/dani00003/causally-reliable-cbm_graph_pertub/logs/reproduce_scripts/celeba/c2bm_celeba.$(ClusterId).$(ProcId).out
+error                   = /home/dani00003/causally-reliable-cbm_graph_pertub/logs/reproduce_scripts/celeba/c2bm_celeba.$(ClusterId).$(ProcId).err
+log                     = /home/dani00003/causally-reliable-cbm_graph_pertub/logs/reproduce_scripts/celeba/c2bm_celeba.$(ClusterId).log
+
+request_GPUs            = 1
+request_CPUs            = 8
+request_memory           = 32G
+requirements             = UidDomain == "cs.uni-saarland.de"
++WantGPUHomeMounted      = true
+
+queue 1
