@@ -65,7 +65,10 @@ def main(cfg: DictConfig) -> None:
         graph = true_graph
     else:
         if cfg.dataset.load_graph:
-            with open(os.path.join(dataset_directory, "graph.pkl"), 'rb') as f:
+            # Use an explicit graph path for graph robustness experiments; otherwise
+            # load the dataset's graph from its normal cache directory.
+            graph_path = cfg.dataset.get("graph_path") or os.path.join(dataset_directory, "graph.pkl")
+            with open(graph_path, 'rb') as f:
                 graph = pickle.load(f)
         else:
             # estimate causal graph with causal structural learning algorithms

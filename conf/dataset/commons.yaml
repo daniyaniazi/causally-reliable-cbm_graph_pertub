@@ -1,4 +1,5 @@
 batch_size: 64
+graph_path: null
 
 autoencoder:
   noise: 0.5
