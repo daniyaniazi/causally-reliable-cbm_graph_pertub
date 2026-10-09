@@ -43,12 +43,12 @@ for GRAPH_SEED in 1 2 3 4 5; do
         dataset.batch_size=512 dataset.load_embeddings="$LOAD_DATASET" \
         +dataset.load_graph=true +dataset.load_true_graph=false \
         ++dataset.graph_path="$PERTURBED_GRAPH" \
-        policy=nodes_pred \
+        +policy=nodes_pred \
         model.hidden_size=64 model.concept_hidden_size=8 \
         model.concept_loss_weight=0.8 model.prop_type=equations \
         engine.optim_kwargs.lr=0.00075 engine.intervention_prob=0.8 \
-        trainer.max_epochs=500 trainer.patience=30 trainer.devices='[0]' \
-        trainer.logger=null \
+        trainer.max_epochs=500 trainer.patience=30 +trainer.devices='[0]' \
+        +trainer.logger=null \
         hydra.run.dir="outputs/graph_sanity/celeba/topology_seed_${GRAPH_SEED}/model_seed_1"
 
     LOAD_DATASET="true"

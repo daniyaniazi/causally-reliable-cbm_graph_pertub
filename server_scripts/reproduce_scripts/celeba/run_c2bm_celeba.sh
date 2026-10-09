@@ -40,11 +40,11 @@ echo "Running C2BM CelebA reproduction (seeds 1-5)..."
     dataset.batch_size=512 \
     dataset.load_embeddings=false \
     +dataset.load_graph=true +dataset.load_true_graph=false \
-    policy=nodes_true \
+    +policy=nodes_true \
     model.hidden_size=64 model.concept_hidden_size=8 \
     model.concept_loss_weight=0.8 model.prop_type=equations \
     engine.optim_kwargs.lr=0.00075 engine.intervention_prob=0.8 \
-    trainer.max_epochs=500 trainer.patience=30 trainer.devices='[0]' \
-    trainer.logger=null
+    trainer.max_epochs=500 trainer.patience=30 +trainer.devices='[0]' \
+    +trainer.logger=null
 
 echo "CelebA C2BM sweep finished. See $PROJECT_ROOT/outputs/multirun/"
