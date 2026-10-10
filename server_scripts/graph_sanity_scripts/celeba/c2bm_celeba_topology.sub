@@ -4,9 +4,9 @@ initialdir              = /home/dani00003/causally-reliable-cbm_graph_pertub
 executable              = /home/dani00003/causally-reliable-cbm_graph_pertub/server_scripts/graph_sanity_scripts/celeba/run_c2bm_celeba_topology.sh
 arguments               = $(GRAPH_SEED)
 
-output                  = /home/dani00003/causally-reliable-cbm_graph_pertub/server_scripts/graph_sanity_scripts/celeba/topology.$(ClusterId).$(ProcId).out
-error                   = /home/dani00003/causally-reliable-cbm_graph_pertub/server_scripts/graph_sanity_scripts/celeba/topology.$(ClusterId).$(ProcId).err
-log                     = /home/dani00003/causally-reliable-cbm_graph_pertub/server_scripts/graph_sanity_scripts/celeba/topology.$(ClusterId).log
+output                  = /home/dani00003/causally-reliable-cbm_graph_pertub/logs/graph_sanity/celeba/perturb_topology/topology.$(ClusterId).$(ProcId).out
+error                   = /home/dani00003/causally-reliable-cbm_graph_pertub/logs/graph_sanity/celeba/perturb_topology/topology.$(ClusterId).$(ProcId).err
+log                     = /home/dani00003/causally-reliable-cbm_graph_pertub/logs/graph_sanity/celeba/perturb_topology/topology.$(ClusterId).log
 
 request_GPUs            = 1
 request_CPUs            = 8
