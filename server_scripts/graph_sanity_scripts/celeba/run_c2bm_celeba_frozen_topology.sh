@@ -7,8 +7,12 @@ CONDA_ENV_BIN="/home/dani00003/miniconda3/envs/c2bm/bin"
 DATA_DIR="/home/dani00003/.cache/c2bm/CelebA/celeba"
 BASE_GRAPH="$PROJECT_ROOT/learned_graphs/celeba/graph.pkl"
 
-GRAPH_SEED="${1:?Usage: run_c2bm_celeba_frozen_topology.sh GRAPH_SEED ORIGINAL_CHECKPOINT}"
-ORIGINAL_CKPT="${2:?Pass the original graph run best .ckpt as the second argument}"
+GRAPH_SEED="${1:-}"
+ORIGINAL_CKPT="${2:-}"
+if [[ -z "$GRAPH_SEED" || -z "$ORIGINAL_CKPT" ]]; then
+    echo "Usage: run_c2bm_celeba_frozen_topology.sh GRAPH_SEED ORIGINAL_CHECKPOINT" >&2
+    exit 2
+fi
 if ! [[ "$GRAPH_SEED" =~ ^[1-5]$ ]]; then
     echo "ERROR: GRAPH_SEED must be an integer from 1 to 5; got $GRAPH_SEED" >&2
     exit 2
@@ -42,7 +46,8 @@ PERTURBED_GRAPH="$PROJECT_ROOT/perturb_graph/celeba/topology/random_seed_${GRAPH
 
 echo "Frozen-encoder topology run: graph seed=$GRAPH_SEED, model seed=1"
 echo "Original encoder checkpoint: $ORIGINAL_CKPT"
-"$PYTHON_BIN" -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+"$PYTHON_BIN" -V
+nvidia-smi || true
 "$PYTHON_BIN" main.py --config-name frozen_encoder \
     dataset=celeba model=c2bm seed=1 \
     dataset.batch_size=512 dataset.load_embeddings=true \
