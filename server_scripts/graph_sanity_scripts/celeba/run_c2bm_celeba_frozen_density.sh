@@ -8,9 +8,9 @@ DATA_DIR="/home/dani00003/.cache/c2bm/CelebA/celeba"
 BASE_GRAPH="$PROJECT_ROOT/learned_graphs/celeba/graph.pkl"
 
 GRAPH_SEED="${1:?Usage: run_c2bm_celeba_frozen_density.sh GRAPH_SEED ORIGINAL_CHECKPOINT}"
-ORIGINAL_CKPT="${2:?Pass the original graph run's best .ckpt as the second argument}"
+ORIGINAL_CKPT="${2:?Pass the original graph run best .ckpt as the second argument}"
 if ! [[ "$GRAPH_SEED" =~ ^[1-5]$ ]]; then
-    echo "ERROR: GRAPH_SEED must be an integer from 1 to 5; got '$GRAPH_SEED'" >&2
+    echo "ERROR: GRAPH_SEED must be an integer from 1 to 5; got $GRAPH_SEED" >&2
     exit 2
 fi
 if [[ ! -f "$ORIGINAL_CKPT" ]]; then
@@ -45,7 +45,7 @@ DENSITY_GRAPH="$PROJECT_ROOT/perturb_graph/celeba/density/random_seed_${GRAPH_SE
 
 echo "Frozen-encoder density run: graph seed=$GRAPH_SEED, model seed=1"
 echo "Original encoder checkpoint: $ORIGINAL_CKPT"
-"$PYTHON_BIN" -c "import torch; print('torch=', torch.__version__, 'cuda=', torch.cuda.is_available())"
+"$PYTHON_BIN" -c "import torch; print(torch.__version__, torch.cuda.is_available())"
 "$PYTHON_BIN" main.py --config-name frozen_encoder \
     dataset=celeba model=c2bm seed=1 \
     dataset.batch_size=512 dataset.load_embeddings=true \
