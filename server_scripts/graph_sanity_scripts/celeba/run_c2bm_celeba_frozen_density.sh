@@ -56,7 +56,7 @@ echo "Original encoder checkpoint: $ORIGINAL_CKPT"
     model.hidden_size=64 model.concept_hidden_size=8 \
     model.concept_loss_weight=0.8 model.prop_type=equations \
     engine.optim_kwargs.lr=0.00075 engine.intervention_prob=0.8 \
-    trainer.max_epochs=500 trainer.patience=30 +trainer.devices='[0]' \
+    trainer.max_epochs=500 trainer.patience=30 "+trainer.devices=[0]" \
     +trainer.logger=null \
     experiment.encoder_checkpoint="$ORIGINAL_CKPT" \
     hydra.run.dir="outputs/graph_sanity/celeba/frozen_encoder/density_seed_${GRAPH_SEED}/model_seed_1"
