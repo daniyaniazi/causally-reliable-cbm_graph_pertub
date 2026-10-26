@@ -38,6 +38,45 @@ def seed_everything(seed: int):
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
+
+def load_and_freeze_c2bm_encoder(engine, checkpoint_path: str) -> None:
+    """Initialize C2BM's input MLP from a trained Lightning checkpoint and freeze it."""
+    if not checkpoint_path or not os.path.isfile(checkpoint_path):
+        raise FileNotFoundError(
+            "Frozen-encoder runs require experiment.encoder_checkpoint to point to "
+            f"an existing original-model checkpoint; got: {checkpoint_path!r}"
+        )
+    if not hasattr(engine, "model") or not hasattr(engine.model, "encoder"):
+        raise TypeError("The configured model does not expose a C2BM input encoder")
+
+    checkpoint = torch.load(
+        checkpoint_path,
+        map_location="cpu",
+        weights_only=False,
+    )
+    state_dict = checkpoint.get("state_dict", checkpoint)
+    encoder_state = {}
+    for name, value in state_dict.items():
+        if name.startswith("model.encoder."):
+            encoder_state[name[len("model.encoder."):]] = value
+        elif name.startswith("encoder."):
+            encoder_state[name[len("encoder."):]] = value
+
+    if not encoder_state:
+        raise KeyError(
+            "No C2BM input encoder weights found in checkpoint. Expected keys such "
+            "as 'state_dict.model.encoder.*'. Check that this is a C2BM checkpoint."
+        )
+
+    engine.model.encoder.load_state_dict(encoder_state, strict=True)
+    for parameter in engine.model.encoder.parameters():
+        parameter.requires_grad_(False)
+    engine.model.encoder.eval()
+    print(
+        f"Loaded and froze C2BM input encoder from {checkpoint_path} "
+        f"({len(encoder_state)} tensors)"
+    )
+
 @hydra.main(config_path="conf", config_name="my_sweep", version_base="1.3")
 def main(cfg: DictConfig) -> None:
     # various preliminaries, it set the seed for reproducibility
@@ -126,6 +165,12 @@ def main(cfg: DictConfig) -> None:
                                  num_workers=cfg.dataset.num_workers)
     
     engine = instantiate(cfg.engine)
+    experiment_cfg = cfg.get("experiment", {})
+    if experiment_cfg.get("freeze_c2bm_encoder", False):
+        load_and_freeze_c2bm_encoder(
+            engine,
+            experiment_cfg.get("encoder_checkpoint"),
+        )
     try:
         trainer = Trainer(cfg)
         trainer.logger.log_hyperparams(parse_hyperparams(cfg))
