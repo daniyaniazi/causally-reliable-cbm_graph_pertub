@@ -146,6 +146,66 @@ def initialize_and_freeze_c2bm_modules(
             component_names.append("c_scorer layers")
         print(f"Loaded {len(concept_states)} concept modules and froze {' and '.join(component_names)}")
 
+
+def initialize_and_freeze_propagators(engine, checkpoint_path: str) -> None:
+    """Load original graph propagators by node name and freeze their weights."""
+    if not checkpoint_path or not os.path.isfile(checkpoint_path):
+        raise FileNotFoundError(
+            "Frozen-propagator runs require experiment.encoder_checkpoint to point to "
+            f"an existing original-model checkpoint; got: {checkpoint_path!r}"
+        )
+    if not hasattr(engine.model, "propagators"):
+        raise TypeError("The configured model does not expose C2BM graph propagators")
+
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    state_dict = checkpoint.get("state_dict", checkpoint)
+    original_by_node = {}
+    for key, value in state_dict.items():
+        parts = key.split(".")
+        try:
+            prop_index = parts.index("propagators")
+        except ValueError:
+            continue
+        if len(parts) <= prop_index + 3:
+            continue
+        node_name = parts[prop_index + 2]
+        parameter_name = ".".join(parts[prop_index + 3:])
+        original_by_node.setdefault(node_name, {})[parameter_name] = value
+
+    current_nodes = {
+        node_name: module
+        for level in engine.model.propagators.values()
+        for node_name, module in level.items()
+    }
+    if not current_nodes:
+        raise RuntimeError("The perturbed task graph produced no propagators to freeze")
+    missing = sorted(set(current_nodes) - set(original_by_node))
+    extra = sorted(set(original_by_node) - set(current_nodes))
+    if missing or extra:
+        raise RuntimeError(
+            "Frozen-propagator graph must contain exactly the original task-ancestor "
+            f"nodes; missing original modules={missing}, no-longer-used original modules={extra}"
+        )
+
+    for node_name, module in current_nodes.items():
+        source = original_by_node[node_name]
+        target = module.state_dict()
+        mismatches = {
+            name: (tuple(source[name].shape), tuple(target[name].shape))
+            for name in target
+            if name not in source or source[name].shape != target[name].shape
+        }
+        if mismatches or set(source) != set(target):
+            raise RuntimeError(
+                f"Cannot reuse original propagator for {node_name}: parameter shape/key "
+                f"mismatch {mismatches}; source keys={sorted(source)}, target keys={sorted(target)}. "
+                "Use degree-preserving topology perturbations that retain the task ancestors."
+            )
+        module.load_state_dict(source, strict=True)
+        module.requires_grad_(False)
+        module.eval()
+    print(f"Loaded and froze original graph propagators for {len(current_nodes)} nodes")
+
 @hydra.main(config_path="conf", config_name="my_sweep", version_base="1.3")
 def main(cfg: DictConfig) -> None:
     # various preliminaries, it set the seed for reproducibility
@@ -253,16 +313,25 @@ def main(cfg: DictConfig) -> None:
             load_concept_scorers=load_concept_scorers,
             freeze_concept_scorers=freeze_concept_scorers,
         )
+    if experiment_cfg.get("freeze_propagators", False) or experiment_cfg.get("initialize_propagators", False):
+        initialize_and_freeze_propagators(
+            engine,
+            experiment_cfg.get("encoder_checkpoint"),
+        )
     try:
         trainer = Trainer(cfg)
         trainer.logger.log_hyperparams(parse_hyperparams(cfg))
-        # ---- train
-        trainer.fit(engine, train_dataloader, val_dataloader)
-        # ---- finetune the encoder (eventually)
-        if cfg.dataset.loader.ftune_size > 0: 
-            trainer, engine = finetune_model(cfg, engine, dataset)
-        # ----- test
-        trainer.test(engine, test_dataloader, ckpt_path='best')
+        skip_training = experiment_cfg.get("skip_training", False)
+        if skip_training:
+            print("Skipping training: evaluating the loaded, frozen model on the changed graph")
+        else:
+            # ---- train
+            trainer.fit(engine, train_dataloader, val_dataloader)
+            # ---- finetune the encoder (eventually)
+            if cfg.dataset.loader.ftune_size > 0:
+                trainer, engine = finetune_model(cfg, engine, dataset)
+        # ----- test; frozen graph-only runs have no newly produced 'best' checkpoint
+        trainer.test(engine, test_dataloader, ckpt_path=None if skip_training else 'best')
         trainer.logger.finalize("success")
     finally:
         if isinstance(trainer.logger, WandbLogger):

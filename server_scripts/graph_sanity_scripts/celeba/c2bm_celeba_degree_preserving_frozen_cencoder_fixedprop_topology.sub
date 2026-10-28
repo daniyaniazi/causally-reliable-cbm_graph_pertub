@@ -1,0 +1,22 @@
+universe                = docker
+docker_image            = pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
+initialdir              = /home/dani00003/causally-reliable-cbm_graph_pertub
+executable              = /home/dani00003/causally-reliable-cbm_graph_pertub/server_scripts/graph_sanity_scripts/celeba/run_c2bm_celeba_degree_preserving_frozen_cencoder_fixedprop_topology.sh
+
+# Replace this with the ORIGINAL CelebA run's best checkpoint (epoch=...ckpt),
+# not last.ckpt unless last.ckpt is also the best epoch.
+ORIGINAL_CKPT = /home/dani00003/causally-reliable-cbm_graph_pertub/outputs/multirun/2026-10-09/23-02-40/0/checkpoints/epoch=48-step=15582.ckpt
+arguments               = $(GRAPH_SEED) $(ORIGINAL_CKPT)
+
+output                  = /home/dani00003/causally-reliable-cbm_graph_pertub/logs/graph_sanity/celeba/degree_preserving_fixedprop_frozen_cencoder.topology.$(ClusterId).$(ProcId).out
+error                   = /home/dani00003/causally-reliable-cbm_graph_pertub/logs/graph_sanity/celeba/degree_preserving_fixedprop_frozen_cencoder.topology.$(ClusterId).$(ProcId).err
+log                     = /home/dani00003/causally-reliable-cbm_graph_pertub/logs/graph_sanity/celeba/degree_preserving_fixedprop_frozen_cencoder.topology.$(ClusterId).log
+
+request_GPUs            = 1
+request_CPUs            = 8
+request_memory           = 32G
+requirements             = UidDomain == "cs.uni-saarland.de"
++WantGPUHomeMounted      = true
+
+queue GRAPH_SEED in (1 2 3 4 5)
+
