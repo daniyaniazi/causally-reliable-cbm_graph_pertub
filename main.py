@@ -39,15 +39,28 @@ def seed_everything(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 
-def load_and_freeze_c2bm_encoder(engine, checkpoint_path: str) -> None:
-    """Initialize C2BM's input MLP from a trained Lightning checkpoint and freeze it."""
+def initialize_and_freeze_c2bm_modules(
+    engine,
+    checkpoint_path: str,
+    load_input_encoder: bool,
+    freeze_input_encoder: bool,
+    load_concept_encoders: bool,
+    freeze_concept_encoders: bool,
+    load_concept_scorers: bool,
+    freeze_concept_scorers: bool,
+) -> None:
+    """Load selected C2BM modules from a Lightning checkpoint and freeze them."""
     if not checkpoint_path or not os.path.isfile(checkpoint_path):
         raise FileNotFoundError(
-            "Frozen-encoder runs require experiment.encoder_checkpoint to point to "
+            "Frozen-module runs require experiment.encoder_checkpoint to point to "
             f"an existing original-model checkpoint; got: {checkpoint_path!r}"
         )
-    if not hasattr(engine, "model") or not hasattr(engine.model, "encoder"):
+    if not hasattr(engine, "model"):
+        raise TypeError("The configured engine does not expose a model")
+    if load_input_encoder and not hasattr(engine.model, "encoder"):
         raise TypeError("The configured model does not expose a C2BM input encoder")
+    if (load_concept_encoders or freeze_concept_encoders or load_concept_scorers or freeze_concept_scorers) and not hasattr(engine.model, "concept_encoders"):
+        raise TypeError("The configured model does not expose C2BM concept encoders")
 
     checkpoint = torch.load(
         checkpoint_path,
@@ -56,26 +69,82 @@ def load_and_freeze_c2bm_encoder(engine, checkpoint_path: str) -> None:
     )
     state_dict = checkpoint.get("state_dict", checkpoint)
     encoder_state = {}
+    concept_states = {}
     for name, value in state_dict.items():
         if name.startswith("model.encoder."):
             encoder_state[name[len("model.encoder."):]] = value
         elif name.startswith("encoder."):
             encoder_state[name[len("encoder."):]] = value
+        elif name.startswith("model.concept_encoders."):
+            tail = name[len("model.concept_encoders."):]
+            concept_name, separator, parameter_name = tail.partition(".")
+            if separator:
+                concept_states.setdefault(concept_name, {})[parameter_name] = value
+        elif name.startswith("concept_encoders."):
+            tail = name[len("concept_encoders."):]
+            concept_name, separator, parameter_name = tail.partition(".")
+            if separator:
+                concept_states.setdefault(concept_name, {})[parameter_name] = value
 
-    if not encoder_state:
+    if load_input_encoder and not encoder_state:
         raise KeyError(
             "No C2BM input encoder weights found in checkpoint. Expected keys such "
             "as 'state_dict.model.encoder.*'. Check that this is a C2BM checkpoint."
         )
+    if (load_concept_encoders or freeze_concept_encoders or load_concept_scorers or freeze_concept_scorers) and not concept_states:
+        raise KeyError(
+            "No C2BM concept encoder weights found in checkpoint. Expected keys "
+            "such as 'state_dict.model.concept_encoders.*'."
+        )
 
-    engine.model.encoder.load_state_dict(encoder_state, strict=True)
-    for parameter in engine.model.encoder.parameters():
-        parameter.requires_grad_(False)
-    engine.model.encoder.eval()
-    print(
-        f"Loaded and froze C2BM input encoder from {checkpoint_path} "
-        f"({len(encoder_state)} tensors)"
-    )
+    if load_input_encoder:
+        engine.model.encoder.load_state_dict(encoder_state, strict=True)
+        if freeze_input_encoder:
+            engine.model.encoder.requires_grad_(False)
+            engine.model.encoder.eval()
+            print(f"Loaded and froze C2BM input encoder ({len(encoder_state)} tensors)")
+        else:
+            print(f"Initialized trainable C2BM input encoder ({len(encoder_state)} tensors)")
+
+    if load_concept_encoders or freeze_concept_encoders or load_concept_scorers or freeze_concept_scorers:
+        expected_names = set(engine.model.concept_encoders.keys())
+        checkpoint_names = set(concept_states)
+        if expected_names != checkpoint_names:
+            raise KeyError(
+                "Checkpoint concept modules do not match this model. "
+                f"Missing={sorted(expected_names - checkpoint_names)}, "
+                f"extra={sorted(checkpoint_names - expected_names)}"
+            )
+        for concept_name, module in engine.model.concept_encoders.items():
+            module_state = concept_states[concept_name]
+            if load_concept_encoders:
+                c_encoder_state = {
+                    key[len("c_encoder."):]: value
+                    for key, value in module_state.items()
+                    if key.startswith("c_encoder.")
+                }
+                if not c_encoder_state:
+                    raise KeyError(f"Checkpoint has no c_encoder weights for {concept_name}")
+                module.c_encoder.load_state_dict(c_encoder_state, strict=True)
+            if load_concept_scorers:
+                c_scorer_state = {
+                    key[len("c_scorer."):]: value
+                    for key, value in module_state.items()
+                    if key.startswith("c_scorer.")
+                }
+                if not c_scorer_state:
+                    raise KeyError(f"Checkpoint has no c_scorer weights for {concept_name}")
+                module.c_scorer.load_state_dict(c_scorer_state, strict=True)
+            if freeze_concept_encoders:
+                module.c_encoder.requires_grad_(False)
+            if freeze_concept_scorers:
+                module.c_scorer.requires_grad_(False)
+        component_names = []
+        if freeze_concept_encoders:
+            component_names.append("c_encoder MLPs")
+        if freeze_concept_scorers:
+            component_names.append("c_scorer layers")
+        print(f"Loaded {len(concept_states)} concept modules and froze {' and '.join(component_names)}")
 
 @hydra.main(config_path="conf", config_name="my_sweep", version_base="1.3")
 def main(cfg: DictConfig) -> None:
@@ -166,10 +235,23 @@ def main(cfg: DictConfig) -> None:
     
     engine = instantiate(cfg.engine)
     experiment_cfg = cfg.get("experiment", {})
-    if experiment_cfg.get("freeze_c2bm_encoder", False):
-        load_and_freeze_c2bm_encoder(
+    freeze_input_encoder = experiment_cfg.get("freeze_c2bm_encoder", False)
+    load_input_encoder = freeze_input_encoder or experiment_cfg.get("initialize_c2bm_encoder", False)
+    freeze_concept_encoders = experiment_cfg.get("freeze_concept_encoders", False)
+    freeze_concept_scorers = experiment_cfg.get("freeze_concept_scorers", False)
+    initialize_concept_modules = freeze_concept_encoders or freeze_concept_scorers
+    load_concept_encoders = experiment_cfg.get("initialize_concept_encoders", initialize_concept_modules)
+    load_concept_scorers = experiment_cfg.get("initialize_concept_scorers", initialize_concept_modules)
+    if load_input_encoder or load_concept_encoders or freeze_concept_encoders or load_concept_scorers or freeze_concept_scorers:
+        initialize_and_freeze_c2bm_modules(
             engine,
             experiment_cfg.get("encoder_checkpoint"),
+            load_input_encoder=load_input_encoder,
+            freeze_input_encoder=freeze_input_encoder,
+            load_concept_encoders=load_concept_encoders,
+            freeze_concept_encoders=freeze_concept_encoders,
+            load_concept_scorers=load_concept_scorers,
+            freeze_concept_scorers=freeze_concept_scorers,
         )
     try:
         trainer = Trainer(cfg)
