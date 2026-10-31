@@ -27,7 +27,9 @@ class C2BM(nn.Module):
                  graph=None,
                  graph_labels=None,
                  prop_type='linear',
-                 cat_latent=False):
+                 cat_latent=False,
+                 fixed_parent_slots=False,
+                 fixed_parent_slots_scope='all'):
         super(C2BM, self).__init__()
         
         # to be stored for every model
@@ -75,6 +77,12 @@ class C2BM(nn.Module):
         # get list of propagators
         self.prop_type = prop_type
         self.cat_latent = cat_latent
+        self.fixed_parent_slots = fixed_parent_slots
+        self.fixed_parent_slots_scope = fixed_parent_slots_scope
+        if self.fixed_parent_slots and prop_type != 'equations':
+            raise ValueError("fixed_parent_slots is currently supported only with prop_type='equations'")
+        if self.fixed_parent_slots_scope not in ('all', 'task'):
+            raise ValueError("fixed_parent_slots_scope must be 'all' or 'task'")
         if prop_type in ['dense', 'mlp', 'embeddings', 'equations']:
             self.propagators = nn.ModuleDict()
             for i in range(1, len(graph_levels)):
@@ -85,6 +93,21 @@ class C2BM(nn.Module):
                     parents = get_parents(self.graph, node).tolist()
                     node_cardinality = self.combo_info['cardinality'][node]
                     parents_cardinality = [self.combo_info['cardinality'][p] for p in parents]
+                    use_fixed_parent_slots = (
+                        self.fixed_parent_slots and
+                        (self.fixed_parent_slots_scope == 'all' or node_name in self.y_names)
+                    )
+                    if use_fixed_parent_slots:
+                        # Stable slots follow the dataset's global concept order.
+                        # The task may receive any concept; a concept may receive
+                        # any other concept, never itself or the task node.
+                        slot_parents = [
+                            p for p, possible_parent in enumerate(self.combo_info['names'])
+                            if p != node and possible_parent in self.c_names
+                        ]
+                        self.fixed_parent_slot_indices = getattr(self, 'fixed_parent_slot_indices', {})
+                        self.fixed_parent_slot_indices[node_name] = slot_parents
+                        parents_cardinality = [self.combo_info['cardinality'][p] for p in slot_parents]
                     if prop_type == 'dense':
                         prop_input_size = sum(parents_cardinality) + hidden_size if cat_latent else sum(parents_cardinality)
                         self.propagators[str(i)][node_name] = Dense(input_size = prop_input_size, 
@@ -167,11 +190,32 @@ class C2BM(nn.Module):
 
                 elif self.prop_type == 'equations':
                     c_cardinality = self.combo_info['cardinality'][c_index]
-                    p_cardinality = [self.combo_info['cardinality'][p] for p in p_indices]
-                    # propagate embeddings
-                    c_prop_parents = torch.cat([c_probs[p_name] for p_name in p_names], dim=1).unsqueeze(-1)
+                    if c_name in getattr(self, 'fixed_parent_slot_indices', {}):
+                        # Build the same parent-state slots for every graph. An
+                        # absent edge contributes a zero vector in that parent's
+                        # permanent slot; present parents contribute their
+                        # predicted categorical probabilities.
+                        parent_vectors = []
+                        for parent_index in self.fixed_parent_slot_indices[c_name]:
+                            parent_name = self.combo_info['names'][parent_index]
+                            parent_cardinality = self.combo_info['cardinality'][parent_index]
+                            if self.graph[parent_index, c_index].item() == 1:
+                                if parent_name not in c_probs:
+                                    raise RuntimeError(
+                                        f"Parent {parent_name} of {c_name} was not evaluated before its child"
+                                    )
+                                parent_vectors.append(c_probs[parent_name])
+                            else:
+                                parent_vectors.append(x_encoded.new_zeros((x_encoded.shape[0], parent_cardinality)))
+                        c_prop_parents = torch.cat(parent_vectors, dim=1).unsqueeze(-1)
+                        parent_state_width = c_prop_parents.shape[1]
+                    else:
+                        # Paper implementation: concatenate only the graph's actual parents.
+                        p_cardinality = [self.combo_info['cardinality'][p] for p in p_indices]
+                        c_prop_parents = torch.cat([c_probs[p_name] for p_name in p_names], dim=1).unsqueeze(-1)
+                        parent_state_width = sum(p_cardinality)
                     weights = propagator(c_values_emb[c_name])
-                    weights = weights.reshape(-1, c_cardinality, sum(p_cardinality))
+                    weights = weights.reshape(-1, c_cardinality, parent_state_width)
                     c_probs[c_name] = torch.softmax(torch.matmul(weights, c_prop_parents).squeeze(-1), dim=1)
                     if c_name not in self.y_names:
                         c_probs[c_name] = maybe_intervene(c_probs[c_name], c[:,c_index], intervention_index[:,c_index])                   

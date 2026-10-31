@@ -9,3 +9,7 @@ concept_loss_weight: 0.5
 normalize_concept_loss: false
 prop_type: 'equations'
 cat_latent: false
+# Optional fixed global parent/state slots with graph-adjacency masking.
+fixed_parent_slots: false
+# all = every non-root concept plus task; task = task node only.
+fixed_parent_slots_scope: all
