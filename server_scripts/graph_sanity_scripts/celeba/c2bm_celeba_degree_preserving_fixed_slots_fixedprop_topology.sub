@@ -1,0 +1,48 @@
+universe                = docker
+docker_image            = pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
+initialdir              = /home/dani00003/causally-reliable-cbm_graph_pertub
+executable              = /home/dani00003/causally-reliable-cbm_graph_pertub/server_scripts/graph_sanity_scripts/celeba/run_c2bm_celeba_degree_preserving_fixed_slots_fixedprop_topology.sh
+arguments               = $(FAMILY) $(GRAPH_SEED)
+
+output                  = /home/dani00003/causally-reliable-cbm_graph_pertub/logs/graph_sanity/celeba/fixed_slots_fixedprop.$(FAMILY).topology.$(ClusterId).$(ProcId).out
+error                   = /home/dani00003/causally-reliable-cbm_graph_pertub/logs/graph_sanity/celeba/fixed_slots_fixedprop.$(FAMILY).topology.$(ClusterId).$(ProcId).err
+log                     = /home/dani00003/causally-reliable-cbm_graph_pertub/logs/graph_sanity/celeba/fixed_slots_fixedprop.$(ClusterId).log
+
+request_GPUs            = 1
+request_CPUs            = 8
+request_memory          = 32G
+requirements             = UidDomain == "cs.uni-saarland.de"
++WantGPUHomeMounted      = true
+
+queue FAMILY, GRAPH_SEED from (
+    full 1
+    full 2
+    full 3
+    full 4
+    full 5
+    frozen_encoder 1
+    frozen_encoder 2
+    frozen_encoder 3
+    frozen_encoder 4
+    frozen_encoder 5
+    frozen_cencoder 1
+    frozen_cencoder 2
+    frozen_cencoder 3
+    frozen_cencoder 4
+    frozen_cencoder 5
+    frozen_upstream 1
+    frozen_upstream 2
+    frozen_upstream 3
+    frozen_upstream 4
+    frozen_upstream 5
+    train_encoder_frozen_cencoder 1
+    train_encoder_frozen_cencoder 2
+    train_encoder_frozen_cencoder 3
+    train_encoder_frozen_cencoder 4
+    train_encoder_frozen_cencoder 5
+    train_cencoder_frozen_scorer 1
+    train_cencoder_frozen_scorer 2
+    train_cencoder_frozen_scorer 3
+    train_cencoder_frozen_scorer 4
+    train_cencoder_frozen_scorer 5
+)
